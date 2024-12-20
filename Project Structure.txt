@@ -1,0 +1,110 @@
+<?php
+session_start();
+include '../config/db.php';
+
+// Check if the user is logged in and has admin rights
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
+    header('Location: ../auth/login.php');
+    exit();
+}
+
+// Fetch all packages from the database
+$query = "SELECT id, package_name FROM packages";
+$result = mysqli_query($conn, $query);
+
+// Error handling for the database query
+if (!$result) {
+    die("Error fetching data: " . mysqli_error($conn));
+}
+
+// Prepare data for the chart
+$packageNames = [];
+$packageCounts = [];
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $packageNames[] = $row['package_name'];
+    $packageCounts[] = 1; // Assuming each package is counted as 1
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packaging Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js Library -->
+</head>
+<body>
+    <div class="container">
+        <h1>Packaging Dashboard</h1>
+        <a href="add-package.php" class="btn">Add New Package</a>
+
+        <div class="chart-container" style="width: 80%; margin: auto;">
+            <canvas id="packageChart"></canvas>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Package Name</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php mysqli_data_seek($result, 0); // Reset pointer for reuse ?>
+                <?php while ($row = mysqli_fetch_assoc($result)): ?>
+                    <tr>
+                        <td><?php echo $row['id']; ?></td>
+                        <td><?php echo $row['package_name']; ?></td>
+                        <td>
+                            <a href="edit-package.php?id=<?php echo $row['id']; ?>" class="btn">Edit</a>
+                            <a href="delete-package.php?id=<?php echo $row['id']; ?>" class="btn">Delete</a>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Pass PHP data to JavaScript
+        const packageNames = <?php echo json_encode($packageNames); ?>;
+        const packageCounts = <?php echo json_encode($packageCounts); ?>;
+
+        // Create the Chart.js bar chart
+        const ctx = document.getElementById('packageChart').getContext('2d');
+        const packageChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: packageNames,
+                datasets: [{
+                    label: 'Number of Packages',
+                    data: packageCounts,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: true
+                    },
+                    tooltip: {
+                        enabled: true
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
